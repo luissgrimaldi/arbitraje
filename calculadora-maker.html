@@ -213,6 +213,79 @@
     La comisión total considera 2 operaciones (compra + venta), cada una con la comisión que ingreses.<br>
     Esto no es asesoramiento financiero — es una calculadora para organizar tus propias decisiones.
   </div>
+
+  <h1 style="margin-top:36px; font-size:18px;">¿Taker o Maker?</h1>
+  <div class="subtitle">Comparalos y mirá cuál te sale más barato/rentable</div>
+
+  <div class="card">
+    <div class="card-title">Opción A — Taker</div>
+    <div class="row2">
+      <div class="field">
+        <label>Precio taker</label>
+        <div class="input-wrap">
+          <input type="number" id="takerPrice" placeholder="1568.41" step="0.01">
+        </div>
+      </div>
+      <div class="field">
+        <label>Comisión taker (%)</label>
+        <div class="input-wrap">
+          <input type="number" id="takerFee" placeholder="0" step="0.01" value="0">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Opción B — Maker</div>
+    <div class="row2">
+      <div class="field">
+        <label>Precio de tu anuncio</label>
+        <div class="input-wrap">
+          <input type="number" id="makerPrice" placeholder="1566" step="0.01">
+        </div>
+      </div>
+      <div class="field">
+        <label>Comisión maker (%)</label>
+        <div class="input-wrap">
+          <input type="number" id="makerFee" placeholder="0.2" step="0.01" value="0.2">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">¿Qué vas a hacer?</div>
+    <div class="field">
+      <label>Operación</label>
+      <div class="input-wrap">
+        <select id="opType" style="width:100%; background:#0f1115; border:1px solid #2c313a; border-radius:10px; padding:12px 14px; color:#fff; font-size:15px; outline:none;">
+          <option value="buy">Comprar USDT</option>
+          <option value="sell">Vender USDT</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card result-card">
+    <div class="card-title">Comparación</div>
+    <div class="result-row">
+      <span class="result-label">Costo/ingreso real Taker</span>
+      <span class="result-value" id="cmpTaker">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Costo/ingreso real Maker</span>
+      <span class="result-value" id="cmpMaker">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Diferencia</span>
+      <span class="result-value" id="cmpDiff" style="font-size:15px;">—</span>
+    </div>
+    <div id="cmpStatusBox"></div>
+    <div class="note" style="margin-top:12px;">
+      Para <b>comprar</b>: conviene el precio real MÁS BAJO (pagás menos por USDT).<br>
+      Para <b>vender</b>: conviene el precio real MÁS ALTO (recibís más por USDT).
+    </div>
+  </div>
 </div>
 
 <script>
@@ -283,6 +356,67 @@
 
   [sellTakerEl, buyTakerEl, feeEl, marginEl, sellTargetEl].forEach(el => {
     el.addEventListener('input', calculate);
+  });
+
+  // --- Comparador Taker vs Maker ---
+  const takerPriceEl = document.getElementById('takerPrice');
+  const takerFeeEl = document.getElementById('takerFee');
+  const makerPriceEl = document.getElementById('makerPrice');
+  const makerFeeEl = document.getElementById('makerFee');
+  const opTypeEl = document.getElementById('opType');
+
+  const cmpTaker = document.getElementById('cmpTaker');
+  const cmpMaker = document.getElementById('cmpMaker');
+  const cmpDiff = document.getElementById('cmpDiff');
+  const cmpStatusBox = document.getElementById('cmpStatusBox');
+
+  function compare() {
+    const takerPrice = parseFloat(takerPriceEl.value);
+    const takerFee = parseFloat(takerFeeEl.value) || 0;
+    const makerPrice = parseFloat(makerPriceEl.value);
+    const makerFee = parseFloat(makerFeeEl.value) || 0;
+    const op = opTypeEl.value;
+
+    if (isNaN(takerPrice) || isNaN(makerPrice)) {
+      cmpTaker.textContent = '—';
+      cmpMaker.textContent = '—';
+      cmpDiff.textContent = '—';
+      cmpStatusBox.innerHTML = '';
+      return;
+    }
+
+    let realTaker, realMaker;
+    if (op === 'buy') {
+      // comprando: pagás precio + comision (costo real, mas bajo es mejor)
+      realTaker = takerPrice * (1 + takerFee / 100);
+      realMaker = makerPrice * (1 + makerFee / 100);
+    } else {
+      // vendiendo: recibís precio - comision (ingreso real, mas alto es mejor)
+      realTaker = takerPrice * (1 - takerFee / 100);
+      realMaker = makerPrice * (1 - makerFee / 100);
+    }
+
+    cmpTaker.textContent = fmt(realTaker);
+    cmpMaker.textContent = fmt(realMaker);
+
+    const diff = Math.abs(realTaker - realMaker);
+    let mejorOpcion, mensaje;
+
+    if (op === 'buy') {
+      mejorOpcion = realTaker < realMaker ? 'Taker' : 'Maker';
+    } else {
+      mejorOpcion = realTaker > realMaker ? 'Taker' : 'Maker';
+    }
+
+    cmpDiff.textContent = fmt(diff) + ' a favor de ' + mejorOpcion;
+    cmpDiff.className = 'result-value ' + (mejorOpcion === 'Taker' ? 'buy' : 'sell');
+
+    cmpStatusBox.innerHTML = `<div class="status ok">Te conviene ${mejorOpcion.toUpperCase()} — te ahorra/suma ${fmt(diff)} por USDT respecto a la otra opción.</div>`;
+  }
+
+  [takerPriceEl, takerFeeEl, makerPriceEl, makerFeeEl, opTypeEl].forEach(el => {
+    el.addEventListener('input', compare);
+    el.addEventListener('change', compare);
   });
 </script>
 </body>
